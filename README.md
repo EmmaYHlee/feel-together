@@ -4,6 +4,36 @@ FeelTogether is an emotion-first social platform that restructures online intera
 
 The system enforces emotional separation so that users only see content aligned with their current emotional state.
 
+## Getting Started
+ 
+### Requirements
+ 
+- Python 3.8+ (verify with `python3 --version`)
+- pip
+- A modern web browser (Chrome, Firefox, Safari, or Edge)
+### Installation
+ 
+```bash
+cd feel_together
+pip install flask pillow
+```
+ 
+No manual database setup is needed — `feeltogether.db` and the `uploads/` directory are created automatically on first run.
+ 
+### Running the App
+ 
+```bash
+python app.py
+```
+ 
+You should see:
+ 
+```
+DB ready, http://localhost:5000
+```
+ 
+Then open **http://localhost:5000** in your browser.
+
 ---
 
 ## 1. Overview
