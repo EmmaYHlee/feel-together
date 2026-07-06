@@ -1,10 +1,24 @@
 # FeelTogether
 
-FeelTogether is an emotion-first social platform that restructures online interaction around emotional states rather than algorithmic engagement. Users enter one of four emotional spaces (Happy, Sad, Angry, Boring) and share doodles and reflections with others experiencing the same emotion.
+Traditional social media mixes emotionally incompatible content into a single feed, often intensifying negative feelings through emotional contrast and comparison.
 
-The system enforces emotional separation so that users only see content aligned with their current emotional state.
+Research has shown:
+- High social media usage is associated with increased anxiety and depression (Valkenburg et al., 2022)
+- Many users report worsened mood after social media use (APA, 2023)
 
-## Getting Started
+Here, we introduce FeelTogether, which is an emotion-first social platform that restructures online interaction around emotional states rather than algorithmic engagement. Users enter one of four emotional spaces (Happy, Sad, Angry, Boring) and share doodles and reflections with others experiencing the same emotion.
+
+FeelTogether introduces an **emotion-segmented social model**:
+
+- Users select their current emotional state
+- They enter a matching emotional space
+- All content is restricted to that emotion
+- Users express themselves via doodles and short reflections
+- Interaction is based on peer recognition rather than algorithms
+
+---
+
+## 1. Getting Started
  
 ### Requirements
  
@@ -33,30 +47,6 @@ DB ready, http://localhost:5000
 ```
  
 Then open **http://localhost:5000** in your browser.
-
----
-
-## 1. Overview
-
-### Problem
-
-Traditional social media mixes emotionally incompatible content into a single feed, often intensifying negative feelings through emotional contrast and comparison.
-
-Research has shown:
-- High social media usage is associated with increased anxiety and depression (Valkenburg et al., 2022)
-- Many users report worsened mood after social media use (APA, 2023)
-
----
-
-### Solution
-
-FeelTogether introduces an **emotion-segmented social model**:
-
-- Users select their current emotional state
-- They enter a matching emotional space
-- All content is restricted to that emotion
-- Users express themselves via doodles and short reflections
-- Interaction is based on peer recognition rather than algorithms
 
 ---
 
