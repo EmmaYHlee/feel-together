@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}FeelTogether — Every feeling has a home{% endblock %}
+
+{% block content %}
+<div class="home-wrap">
+  <h1 class="home-title">FeelTogether</h1>
+  <p class="slogan-static">In a world of noise, we built a place where your feelings finally make sense to someone. <br><br><strong>Share your feelings today!</strong> </p>
+  <div class="slogan-tw-wrap">
+    <p class="slogan-tw" id="slogan-tw"><span class="tw-cursor"></span></p>
+  </div>
+
+  <div class="emo-grid">
+    <a href="{{ url_for('set_mood', mood='happy') }}" class="emo-btn happy">
+      <div class="shine"></div><div class="pulse-ring"></div><div class="inner-glow"></div><div class="radial"></div>
+      <span class="icon">😊</span><span class="label">Happy</span>
+    </a>
+    <a href="{{ url_for('set_mood', mood='sad') }}" class="emo-btn sad">
+      <div class="shine"></div><div class="pulse-ring"></div><div class="inner-glow"></div><div class="radial"></div>
+      <span class="icon">😢</span><span class="label">Sad</span>
+    </a>
+    <a href="{{ url_for('set_mood', mood='angry') }}" class="emo-btn angry">
+      <div class="shine"></div><div class="pulse-ring"></div><div class="inner-glow"></div><div class="radial"></div>
+      <span class="icon">😡</span><span class="label">Angry</span>
+    </a>
+    <a href="{{ url_for('set_mood', mood='boring') }}" class="emo-btn boring">
+      <div class="shine"></div><div class="pulse-ring"></div><div class="inner-glow"></div><div class="radial"></div>
+      <span class="icon">😐</span><span class="label">Boring</span>
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+startTypewriter();
+</script>
+{% endblock %}

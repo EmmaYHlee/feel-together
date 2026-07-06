@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}FeelTogether{% endblock %}</title>
+<link href="https://fonts.googleapis.com/css2?family=Righteous&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="orb3"></div>
+
+<nav id="main-nav">
+  <a class="logo" href="{{ url_for('home') }}">FeelTogether</a>
+  <div class="nav-btns">
+    {% if page == 'home' %}
+      <a href="{{ url_for('draw') }}"   class="{% if page == 'draw'   %}nav-active{% endif %}">Draw</a>
+      <a href="{{ url_for('board') }}"  class="{% if page == 'board'  %}nav-active{% endif %}">Board</a>
+      {% if user %}
+        <a href="{{ url_for('logout') }}" style="color:#ef4444;border-color:#ef4444">Sign out @{{ user.username }}</a>
+      {% else %}
+        <a href="{{ url_for('signup') }}">Sign Up</a>
+      {% endif %}
+    {% else %}
+      <a href="{{ url_for('draw') }}"  class="{% if page == 'draw'  %}nav-active{% endif %}">Draw</a>
+      <a href="{{ url_for('board') }}" class="{% if page == 'board' %}nav-active{% endif %}">Board</a>
+      {% if user %}
+        <a href="{{ url_for('logout') }}" style="color:#ef4444;border-color:#ef4444">Sign out @{{ user.username }}</a>
+      {% else %}
+        <a href="{{ url_for('signup') }}" class="{% if page == 'signup' %}nav-active{% endif %}">Sign Up</a>
+      {% endif %}
+      {% if mood %}
+        <a href="{{ url_for('clear_mood') }}" style="color:#ef4444;border-color:#ef4444;background:rgba(239,68,68,.08)">Change mood</a>
+      {% endif %}
+    {% endif %}
+  </div>
+</nav>
+
+{% block nav_music %}{% endblock %}
+
+<div class="page-content">
+  {% block content %}{% endblock %}
+</div>
+
+{% block modal %}{% endblock %}
+
+<footer id="main-footer">
+  <span>© 2026 FeelTogether — every feeling has a home here</span>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

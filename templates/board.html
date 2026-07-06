@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}Board — FeelTogether{% endblock %}
+
+{% block nav_music %}
+{% if song_file %}
+<div class="music-bar">
+  <span class="music-icon">🎵</span>
+  <span class="music-title">{{ song_title }}</span>
+  <button class="music-toggle" id="music-toggle-btn" onclick="toggleMusic()">⏸ Pause</button>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+{% if song_file %}
+<audio id="bg-music" loop preload="auto">
+  <source src="{{ url_for('static', filename=song_file) }}" type="audio/mpeg">
+</audio>
+{% endif %}
+
+<div style="position:relative;z-index:1">
+  <div class="board-filter">
+    <a {% if mood != 'happy' %}aria-disabled="true"{% else %}href="{{ url_for('set_mood', mood='happy', next='board') }}"{% endif %}
+       class="filter-btn {% if mood=='happy' or not mood %}active{% else %}disabled{% endif %}">😊 Happy</a>
+    <a {% if mood != 'sad' %}aria-disabled="true"{% else %}href="{{ url_for('set_mood', mood='sad', next='board') }}"{% endif %}
+       class="filter-btn {% if mood=='sad' %}active{% else %}disabled{% endif %}">😢 Sad</a>
+    <a {% if mood != 'angry' %}aria-disabled="true"{% else %}href="{{ url_for('set_mood', mood='angry', next='board') }}"{% endif %}
+       class="filter-btn {% if mood=='angry' %}active{% else %}disabled{% endif %}">😡 Angry</a>
+    <a {% if mood != 'boring' %}aria-disabled="true"{% else %}href="{{ url_for('set_mood', mood='boring', next='board') }}"{% endif %}
+       class="filter-btn {% if mood=='boring' %}active{% else %}disabled{% endif %}">😐 Boring</a>
+  </div>
+  <div id="board-area">
+    <div class="board-empty" id="board-empty">
+      <div class="big">🖼</div>
+      <p>No doodles yet — be the first!</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block modal %}
+<div id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div id="modal-box">
+    <div class="modal-header">
+      <span class="modal-emotion" id="modal-emotion-tag"></span>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-img"><img id="modal-img" src="" alt="doodle"></div>
+    <div class="modal-meta" id="modal-meta"></div>
+    <div class="modal-desc" id="modal-desc"></div>
+    <div class="modal-reactions">
+      <button class="react-btn" id="btn-like"    onclick="react('like')">👍 <span id="like-count">0</span></button>
+      <button class="react-btn" id="btn-dislike" onclick="react('dislike')">👎 <span id="dislike-count">0</span></button>
+    </div>
+    <div class="react-info" id="react-info"></div>
+    <div id="delete-wrap" style="padding:0 18px 16px;display:none">
+      <button id="btn-delete" onclick="deleteDoodle()"
+        style="width:100%;padding:9px;border:1px solid #fecaca;border-radius:9px;background:#fef2f2;color:#dc2626;font-family:'Space Mono',monospace;font-size:.8rem;font-weight:700;cursor:pointer;transition:all .15s;">
+        🗑 Delete my doodle
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PAGE_MOOD   = {{ mood | tojson }};
+const BOARD_FILTER = PAGE_MOOD || "happy";
+const LOGGED_IN   = {{ 'true' if user else 'false' }};
+const USERNAME    = {{ user.username | tojson if user else 'null' }};
+
+if (PAGE_MOOD) applyAccent(PAGE_MOOD);
+
+// ── Music ─────────────────────────────────────────────────
+const audioEl = document.getElementById("bg-music");
+function toggleMusic(){
+  if(!audioEl)return;
+  const btn=document.getElementById("music-toggle-btn");
+  if(audioEl.paused){audioEl.play();if(btn)btn.textContent="⏸ Pause";}
+  else{audioEl.pause();if(btn)btn.textContent="▶ Play";}
+}
+if(audioEl){
+  audioEl.volume=0.5;
+  audioEl.play().catch(()=>{const btn=document.getElementById("music-toggle-btn");if(btn)btn.textContent="▶ Play";});
+}
+
+// ── Board physics ──────────────────────────────────────────
+let cards={},boardDoodles=[],animFrame=null;
+const physics={};
+function getPhysics(id){
+  if(!physics[id])physics[id]={x:Math.random()*.65+.05,y:Math.random()*.6+.1,vx:(Math.random()-.5)*.14,vy:(Math.random()-.5)*.14};
+  return physics[id];
+}
+function getSize(d){return Math.min(Math.sqrt(window.innerWidth*window.innerHeight/4),Math.max(44,90+(d.likes-d.dislikes)*8));}
+
+async function loadBoard(){
+  try{boardDoodles=await apiCall("GET",`/api/doodles?emotion=${BOARD_FILTER}`);}
+  catch{boardDoodles=[];}
+  rebuildBoard();
+}
+function rebuildBoard(){
+  const area=document.getElementById("board-area");
+  document.querySelectorAll(".doodle-card").forEach(el=>el.remove());
+  cards={};
+  document.getElementById("board-empty").style.display=boardDoodles.length?"none":"block";
+  const bw=area.clientWidth,bh=area.clientHeight;
+  boardDoodles.forEach(d=>{
+    const ph=getPhysics(d.id),sz=getSize(d),emo=EMOTIONS[d.emotion]||EMOTIONS.happy;
+    const el=document.createElement("div");el.className="doodle-card";el.dataset.id=d.id;
+    Object.assign(el.style,{width:sz+"px",height:sz+"px",left:(ph.x*bw)+"px",top:(ph.y*bh)+"px",
+      zIndex:Math.floor(Math.random()*10)+1,borderTop:"3px solid "+emo.color,boxShadow:"0 4px 20px "+emo.color+"40"});
+    const img=document.createElement("img");img.src=d.image_url;el.appendChild(img);
+    const badge=document.createElement("div");badge.className="score-badge";
+    const sc=d.likes-d.dislikes;badge.textContent=(sc>0?"↑":sc<0?"↓":"·")+Math.abs(sc);
+    el.appendChild(badge);addDragClick(el,d.id);area.appendChild(el);
+    cards[d.id]={el,sz,x:ph.x*bw,y:ph.y*bh,vx:ph.vx*bw*.009,vy:ph.vy*bh*.009,paused:false};
+  });
+}
+function addDragClick(el,id){
+  let start=null,moved=false;
+  const down=e=>{
+    e.stopPropagation();const s=e.touches?e.touches[0]:e;const c=cards[id];if(!c)return;
+    start={mx:s.clientX,my:s.clientY,cx:c.x,cy:c.y};moved=false;el.classList.add("dragging");c.paused=true;
+    const move=e=>{
+      if(!start)return;e.preventDefault();const s=e.touches?e.touches[0]:e;
+      const dx=s.clientX-start.mx,dy=s.clientY-start.my;
+      if(Math.abs(dx)>4||Math.abs(dy)>4)moved=true;
+      const c=cards[id];if(!c)return;c.x=start.cx+dx;c.y=start.cy+dy;el.style.left=c.x+"px";el.style.top=c.y+"px";
+    };
+    const up=()=>{
+      el.classList.remove("dragging");if(cards[id])cards[id].paused=false;
+      if(!moved)openModal(id);start=null;moved=false;
+      window.removeEventListener("mousemove",move);window.removeEventListener("mouseup",up);
+      window.removeEventListener("touchmove",move);window.removeEventListener("touchend",up);
+    };
+    window.addEventListener("mousemove",move);window.addEventListener("mouseup",up);
+    window.addEventListener("touchmove",move,{passive:false});window.addEventListener("touchend",up);
+  };
+  el.addEventListener("mousedown",down);el.addEventListener("touchstart",down,{passive:false});
+}
+function animate(){
+  const area=document.getElementById("board-area"),bw=area.clientWidth,bh=area.clientHeight;
+  for(const id in cards){
+    const c=cards[id];if(c.paused)continue;
+    c.x+=c.vx;c.y+=c.vy;
+    if(c.x<0){c.x=0;c.vx=Math.abs(c.vx);}if(c.y<0){c.y=0;c.vy=Math.abs(c.vy);}
+    if(c.x+c.sz>bw){c.x=bw-c.sz;c.vx=-Math.abs(c.vx);}if(c.y+c.sz>bh){c.y=bh-c.sz;c.vy=-Math.abs(c.vy);}
+    c.el.style.left=c.x+"px";c.el.style.top=c.y+"px";
+  }
+  animFrame=requestAnimationFrame(animate);
+}
+
+// ── Modal ──────────────────────────────────────────────────
+let modalDoodle=null;
+function hexToRgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)].join(",");}
+function openModal(id){
+  modalDoodle=boardDoodles.find(x=>String(x.id)===String(id));if(!modalDoodle)return;
+  const d=modalDoodle,emo=EMOTIONS[d.emotion]||EMOTIONS.happy;
+  const tag=document.getElementById("modal-emotion-tag");
+  tag.textContent=emo.emoji+" "+d.emotion;tag.style.background="rgba("+hexToRgb(emo.color)+",.15)";tag.style.color=emo.dk;
+  document.getElementById("modal-img").src=d.image_url;
+  document.getElementById("modal-meta").textContent=(d.username?"by @"+d.username:"anonymous")+"  ·  "+new Date(d.created_at).toLocaleDateString();
+  document.getElementById("modal-desc").textContent=d.description;
+  // show delete button only for the doodle's owner
+  const deleteWrap=document.getElementById("delete-wrap");
+  deleteWrap.style.display=(LOGGED_IN && d.username===USERNAME)?"block":"none";
+  refreshReactions(d);document.getElementById("modal-overlay").classList.add("open");
+}
+async function deleteDoodle(){
+  if(!modalDoodle)return;
+  if(!confirm("Delete this doodle? This cannot be undone."))return;
+  try{
+    await apiCall("DELETE",`/api/doodles/${modalDoodle.id}`);
+    // remove from local list and board
+    boardDoodles=boardDoodles.filter(x=>x.id!==modalDoodle.id);
+    const c=cards[modalDoodle.id];
+    if(c){c.el.remove();delete cards[modalDoodle.id];}
+    closeModal();
+    showToast("Doodle deleted.");
+  }catch(err){showToast(err.message,true);}
+}
+function refreshReactions(d){
+  document.getElementById("like-count").textContent=d.likes;
+  document.getElementById("dislike-count").textContent=d.dislikes;
+  const lb=document.getElementById("btn-like"),db=document.getElementById("btn-dislike"),info=document.getElementById("react-info");
+  lb.className="react-btn";db.className="react-btn";
+  if(!LOGGED_IN){lb.classList.add("locked");db.classList.add("locked");info.innerHTML='<a href="{{ url_for("signup") }}" style="color:var(--teal-dark);font-weight:700;text-decoration:underline">Sign up or log in</a> to react to doodles.';}
+  else{if(d.user_reaction==="like")lb.classList.add("liked");if(d.user_reaction==="dislike")db.classList.add("disliked");info.textContent="Logged in as @"+USERNAME;}
+}
+async function react(type){
+  if(!LOGGED_IN){showToast("Sign in to react!",true);return;}if(!modalDoodle)return;
+  try{
+    const res=await apiCall("POST",`/api/doodles/${modalDoodle.id}/react`,{type});
+    Object.assign(modalDoodle,res);
+    const idx=boardDoodles.findIndex(x=>x.id===modalDoodle.id);if(idx>-1)Object.assign(boardDoodles[idx],modalDoodle);
+    refreshReactions(modalDoodle);
+    const c=cards[modalDoodle.id];
+    if(c){const sz=getSize(modalDoodle);c.sz=sz;c.el.style.width=sz+"px";c.el.style.height=sz+"px";
+      const b=c.el.querySelector(".score-badge");const sc=modalDoodle.likes-modalDoodle.dislikes;
+      if(b)b.textContent=(sc>0?"↑":sc<0?"↓":"·")+Math.abs(sc);}
+  }catch(err){showToast(err.message,true);}
+}
+function closeModal(){document.getElementById("modal-overlay").classList.remove("open");modalDoodle=null;}
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
+
+loadBoard();
+animate();
+</script>
+{% endblock %}

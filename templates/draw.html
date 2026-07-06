@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}Draw — FeelTogether{% endblock %}
+
+{% block nav_music %}
+{% if song_file %}
+<div class="music-bar">
+  <span class="music-icon">🎵</span>
+  <span class="music-title">{{ song_title }}</span>
+  <button class="music-toggle" id="music-toggle-btn" onclick="toggleMusic()">⏸ Pause</button>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+{% if song_file %}
+<audio id="bg-music" loop preload="auto">
+  <source src="{{ url_for('static', filename=song_file) }}" type="audio/mpeg">
+</audio>
+
+<!-- Floating song title words -->
+<div id="song-words-bg" aria-hidden="true"></div>
+<style>
+#song-words-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.song-word {
+  position: absolute;
+  font-family: 'Righteous', cursive;
+  font-size: clamp(1.5rem, 10vw, 6rem);
+  font-weight: 400;
+  white-space: nowrap;
+  user-select: none;
+  animation: wordFloat var(--dur) ease-in-out var(--delay) infinite;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+{% if mood == 'happy' %}
+.song-word { background-image: linear-gradient(135deg, #fbbf24, #f97316, #fbbf24); }
+{% elif mood == 'sad' %}
+.song-word { background-image: linear-gradient(135deg, #3b82f6, #1d4ed8, #3b82f6); }
+{% elif mood == 'angry' %}
+.song-word { background-image: linear-gradient(135deg, #f43f5e, #ec4899, #f43f5e); }
+{% elif mood == 'boring' %}
+.song-word { background-image: linear-gradient(135deg, #a78bfa, #7c3aed, #a78bfa); }
+{% endif %}
+@keyframes wordFloat {
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-60px); }
+  100% { transform: translateY(0px); }
+}
+</style>
+<script>
+(function() {
+  const title = {{ song_title | tojson }};
+  if (!title) return;
+  const words = title.split(" ");
+  const container = document.getElementById("song-words-bg");
+
+  words.forEach((word, i) => {
+    const el = document.createElement("div");
+    el.className = "song-word";
+    el.textContent = word;
+    const isLeft = i % 2 === 0;
+    const horizOffset = 3 + Math.random() * 5;
+    el.style.setProperty("--dur", (4 + i * 0.8) + "s");
+    el.style.setProperty("--delay", (i * 0.6) + "s");
+    el.style.top = "60%";
+    if (isLeft) { el.style.left = horizOffset + "%"; }
+    else        { el.style.right = horizOffset + "%"; }
+    container.appendChild(el);
+  });
+})();
+</script>
+{% endif %}
+
+<div class="draw-inner">
+  <div class="section-title">Draw your feeling</div>
+
+  <div class="emotion-tabs">
+    <a {% if mood != 'happy' %}aria-disabled="true"{% else %}href="{{ url_for('set_mood', mood='happy', next='draw') }}"{% endif %}
+       class="tab-btn {% if mood == 'happy' %}active{% else %}disabled{% endif %}"><span class="emoji">😊</span>Happy</a>
+    <a {% if mood != 'sad' %}aria-disabled="true"{% else %}href="{{ url_for('set_mood', mood='sad', next='draw') }}"{% endif %}
+       class="tab-btn {% if mood == 'sad' %}active{% else %}disabled{% endif %}"><span class="emoji">😢</span>Sad</a>
+    <a {% if mood != 'angry' %}aria-disabled="true"{% else %}href="{{ url_for('set_mood', mood='angry', next='draw') }}"{% endif %}
+       class="tab-btn {% if mood == 'angry' %}active{% else %}disabled{% endif %}"><span class="emoji">😡</span>Angry</a>
+    <a {% if mood != 'boring' %}aria-disabled="true"{% else %}href="{{ url_for('set_mood', mood='boring', next='draw') }}"{% endif %}
+       class="tab-btn {% if mood == 'boring' %}active{% else %}disabled{% endif %}"><span class="emoji">😐</span>Boring</a>
+  </div>
+
+  <div class="canvas-section">
+    <div class="toolbar">
+      <button id="tool-pen" class="active-tool" onclick="setTool('pen',this)">✏ Pen</button>
+      <button onclick="setTool('eraser',this)">◻ Eraser</button>
+      <button onclick="clearCanvas()">✕ Clear</button>
+      <label>Size <input type="range" id="brush-size" min="2" max="40" value="5" oninput="brushSize=+this.value"></label>
+    </div>
+    <div class="color-palette" id="color-palette"></div>
+    <div id="canvas-wrap">
+      <canvas id="doodle-canvas" width="740" height="370"></canvas>
+    </div>
+    <div class="desc-area">
+      <label>What made you feel this way?</label>
+      <textarea id="desc-input" placeholder="Write your story here…"></textarea>
+    </div>
+    <button class="post-btn" id="post-btn" onclick="postDoodle()">Post Doodle →</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block modal %}
+<div id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div id="modal-box">
+    <div class="modal-header">
+      <span class="modal-emotion" id="modal-emotion-tag"></span>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-img"><img id="modal-img" src="" alt="doodle"></div>
+    <div class="modal-meta" id="modal-meta"></div>
+    <div class="modal-desc" id="modal-desc"></div>
+    <div class="modal-reactions">
+      <button class="react-btn" id="btn-like"    onclick="react('like')">👍 <span id="like-count">0</span></button>
+      <button class="react-btn" id="btn-dislike" onclick="react('dislike')">👎 <span id="dislike-count">0</span></button>
+    </div>
+    <div class="react-info" id="react-info"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Server-side values ────────────────────────────────────
+const PAGE_MOOD   = {{ mood | tojson }};
+const LOGGED_IN   = {{ 'true' if user else 'false' }};
+const USERNAME    = {{ user.username | tojson if user else 'null' }};
+
+if (PAGE_MOOD) applyAccent(PAGE_MOOD);
+
+// ── Music ─────────────────────────────────────────────────
+const audioEl = document.getElementById("bg-music");
+function toggleMusic() {
+  if (!audioEl) return;
+  const btn = document.getElementById("music-toggle-btn");
+  if (audioEl.paused) { audioEl.play(); if(btn) btn.textContent = "⏸ Pause"; }
+  else                { audioEl.pause(); if(btn) btn.textContent = "▶ Play"; }
+}
+if (audioEl) {
+  audioEl.volume = 0.5;
+  audioEl.play().catch(() => {
+    const btn = document.getElementById("music-toggle-btn");
+    if (btn) btn.textContent = "▶ Play";
+  });
+}
+
+// ── Colour palette ─────────────────────────────────────────
+const COLORS = ["#000000","#ffffff","#6b7280","#9ca3af","#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#3b82f6","#8b5cf6","#ec4899","#f43f5e","#06b6d4","#84cc16","#a855f7","#fde68a","#bfdbfe","#bbf7d0","#fecaca","#7c3aed","#1d4ed8","#065f46","#7f1d1d"];
+let brushColor="#000000", brushSize=5, currentTool="pen", currentEmotion=PAGE_MOOD||"happy";
+
+const palette = document.getElementById("color-palette");
+COLORS.forEach(c => {
+  const s = document.createElement("div");
+  s.className = "color-swatch" + (c===brushColor?" active":"");
+  s.style.background = c;
+  if (c==="#ffffff") s.style.boxShadow = "inset 0 0 0 1px rgba(0,0,0,.15)";
+  s.onclick = () => { brushColor=c; document.querySelectorAll(".color-swatch").forEach(x=>x.classList.remove("active")); s.classList.add("active"); };
+  palette.appendChild(s);
+});
+const cw=document.createElement("div"); cw.className="color-swatch custom";
+const ci=document.createElement("input"); ci.type="color"; ci.value="#ff0000";
+ci.oninput=e=>{ brushColor=e.target.value; document.querySelectorAll(".color-swatch").forEach(x=>x.classList.remove("active")); cw.style.background=brushColor; cw.classList.add("active"); };
+cw.appendChild(ci); palette.appendChild(cw);
+
+// ── Canvas ─────────────────────────────────────────────────
+const canvas=document.getElementById("doodle-canvas");
+const ctx=canvas.getContext("2d");
+ctx.fillStyle="#fff"; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+function resizeCanvas(){const w=document.getElementById("canvas-wrap").clientWidth;canvas.style.width=w+"px";canvas.style.height=(canvas.height*(w/canvas.width))+"px";}
+resizeCanvas(); window.addEventListener("resize",resizeCanvas);
+
+function getPos(e){const r=canvas.getBoundingClientRect(),sx=canvas.width/r.width,sy=canvas.height/r.height,s=e.touches?e.touches[0]:e;return[(s.clientX-r.left)*sx,(s.clientY-r.top)*sy];}
+let isDrawing=false,lastX=0,lastY=0;
+canvas.addEventListener("mousedown", e=>{isDrawing=true;[lastX,lastY]=getPos(e);});
+canvas.addEventListener("mousemove", e=>{if(!isDrawing)return;draw(e);});
+canvas.addEventListener("mouseup",   ()=>isDrawing=false);
+canvas.addEventListener("mouseleave",()=>isDrawing=false);
+canvas.addEventListener("touchstart",e=>{e.preventDefault();isDrawing=true;[lastX,lastY]=getPos(e);},{passive:false});
+canvas.addEventListener("touchmove", e=>{e.preventDefault();if(!isDrawing)return;draw(e);},{passive:false});
+canvas.addEventListener("touchend",  ()=>isDrawing=false);
+
+function draw(e){
+  const[x,y]=getPos(e);
+  ctx.beginPath();ctx.moveTo(lastX,lastY);ctx.lineTo(x,y);
+  ctx.lineWidth=brushSize;ctx.lineCap="round";ctx.lineJoin="round";
+  if(currentTool==="eraser"){ctx.globalCompositeOperation="destination-out";ctx.strokeStyle="rgba(0,0,0,1)";}
+  else{ctx.globalCompositeOperation="source-over";ctx.strokeStyle=brushColor;}
+  ctx.stroke();[lastX,lastY]=[x,y];
+}
+function setTool(t,btn){currentTool=t;document.querySelectorAll(".toolbar button").forEach(b=>b.classList.remove("active-tool"));btn.classList.add("active-tool");}
+function clearCanvas(){ctx.globalCompositeOperation="source-over";ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);}
+
+// ── Post doodle ────────────────────────────────────────────
+async function postDoodle() {
+  const desc = document.getElementById("desc-input").value.trim();
+  if (!desc) { showToast("Add a description first!", true); return; }
+  if (!currentEmotion) { showToast("Please select a mood first!", true); return; }
+  const btn = document.getElementById("post-btn");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading…';
+  try {
+    const res = await fetch("/api/doodles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emotion: currentEmotion, description: desc, imageData: canvas.toDataURL("image/jpeg", 0.7) })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { showToast(data.error || "Upload failed ("+res.status+")", true); return; }
+    clearCanvas();
+    document.getElementById("desc-input").value = "";
+    showToast("Doodle posted! 🎉");
+    setTimeout(() => window.location.href = "{{ url_for('board') }}", 1000);
+  } catch(err) { showToast("Network error: " + err.message, true); }
+  finally { btn.disabled = false; btn.innerHTML = "Post Doodle →"; }
+}
+
+// ── Modal ──────────────────────────────────────────────────
+let modalDoodle=null;
+function hexToRgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)].join(",");}
+function closeModal(){document.getElementById("modal-overlay").classList.remove("open");modalDoodle=null;}
+function refreshReactions(d){
+  document.getElementById("like-count").textContent=d.likes;
+  document.getElementById("dislike-count").textContent=d.dislikes;
+  const lb=document.getElementById("btn-like"),db=document.getElementById("btn-dislike"),info=document.getElementById("react-info");
+  lb.className="react-btn";db.className="react-btn";
+  if(!LOGGED_IN){lb.classList.add("locked");db.classList.add("locked");info.innerHTML='<a href="{{ url_for("signup") }}" style="color:var(--teal-dark);font-weight:700;text-decoration:underline">Sign up or log in</a> to react to doodles.';}
+  else{if(d.user_reaction==="like")lb.classList.add("liked");if(d.user_reaction==="dislike")db.classList.add("disliked");info.textContent="Logged in as @"+USERNAME;}
+}
+async function react(type){
+  if(!LOGGED_IN){showToast("Sign in to react!",true);return;}if(!modalDoodle)return;
+  try{const res=await apiCall("POST",`/api/doodles/${modalDoodle.id}/react`,{type});Object.assign(modalDoodle,res);refreshReactions(modalDoodle);}
+  catch(err){showToast(err.message,true);}
+}
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
+</script>
+{% endblock %}
