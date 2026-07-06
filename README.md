@@ -15,7 +15,7 @@ The system enforces emotional separation so that users only see content aligned 
  
 ```bash
 cd feel_together
-pip install flask pillow
+pip install -r requirements.txt
 ```
  
 No manual database setup is needed — `feeltogether.db` and the `uploads/` directory are created automatically on first run.
